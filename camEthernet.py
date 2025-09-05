@@ -1,3 +1,4 @@
+import socket
 import cv2
 
 import tkinter as tk
@@ -6,11 +7,43 @@ def main():
 	from PIL import Image, ImageTk
 
 	ventana = tk.Tk()
-	ventana.title("camEthernet.py")
-	ventana.geometry("600x300")
+	frame_controles = tk.Frame(ventana)
+	frame_controles.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
 
+	# Usar un frame interno para centrar y limitar el ancho
+	frame_interno = tk.Frame(frame_controles)
+	frame_interno.pack(anchor="center")
 	frame_main = tk.Frame(ventana)
+	# IP local
+	tk.Label(frame_interno, text="IP local:").grid(row=0, column=0, sticky="e", padx=2)
+	entry_ip_local = tk.Entry(frame_interno, width=15)
+	entry_ip_local.grid(row=0, column=1, padx=2)
 	frame_main.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+	# Obtener IP local automáticamente
+	try:
+		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		s.connect(("8.8.8.8", 80))
+		ip_local = s.getsockname()[0]
+		s.close()
+	except Exception:
+		ip_local = "127.0.0.1"
+	entry_ip_local.insert(0, ip_local)
+
+	# IP destino
+	tk.Label(frame_interno, text="IP destino:").grid(row=0, column=2, sticky="e", padx=2)
+	entry_ip_destino = tk.Entry(frame_interno, width=15)
+	entry_ip_destino.grid(row=0, column=3, padx=2)
+	# Frame inferior para controles de red
+	# Puerto
+	tk.Label(frame_interno, text="Puerto:").grid(row=0, column=4, sticky="e", padx=2)
+	entry_puerto = tk.Entry(frame_interno, width=6)
+	entry_puerto.grid(row=0, column=5, padx=2)
+	entry_puerto.insert(0, "5000")
+	# Botones en una segunda fila
+	btn_iniciar = tk.Button(frame_interno, text="Iniciar transmisión")
+	btn_iniciar.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
+	btn_detener = tk.Button(frame_interno, text="Detener transmisión")
+	btn_detener.grid(row=1, column=3, columnspan=3, pady=5, sticky="ew")
 
 	# Frame izquierdo: lista de cámaras
 	frame_lista = tk.Frame(frame_main)
@@ -42,22 +75,32 @@ def main():
 
 	def buscar_camaras():
 		camaras = []
-		for i in range(20):
-			cap = cv2.VideoCapture(i)
-			if cap.isOpened():
-				width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-				height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-				fps = cap.get(cv2.CAP_PROP_FPS)
-				if not fps or fps == 0:
-					fps = 'N/A'
-				nombre = f"Cámara {i} - {width}x{height} @ {fps}fps"
-				camaras.append({'idx': i, 'nombre': nombre})
+		max_cameras = 5  # Reducimos el número de cámaras a buscar
+		for i in range(max_cameras):
+			try:
+				cap = cv2.VideoCapture(i)
+				if cap.isOpened():
+					width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+					height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+					fps = cap.get(cv2.CAP_PROP_FPS)
+					if not fps or fps == 0:
+						fps = 'N/A'
+					nombre = f"Cámara {i} - {width}x{height} @ {fps}fps"
+					camaras.append({'idx': i, 'nombre': nombre})
 				cap.release()
+			except Exception as e:
+				print(f"Error al buscar cámara {i}: {str(e)}")
+				continue
 		return camaras
 
 	camaras = buscar_camaras()
+
 	for cam in camaras:
 		lista_camaras.insert(tk.END, cam['nombre'])
+
+	# Seleccionar la primera cámara por defecto si hay alguna
+	if camaras:
+		lista_camaras.selection_set(0)
 
 	def actualizar_video():
 		if mostrar_video[0] and cap[0] is not None and cap[0].isOpened():
