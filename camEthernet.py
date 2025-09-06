@@ -103,9 +103,17 @@ def main():
                                 text="Cámara oculta\nPresiona 'Ver video' para activar", justify="center")
     label_placeholder.place(relx=0.5, rely=0.5, anchor="center", relwidth=1, relheight=1)
 
+    # Frame para botones de control de video
+    frame_botones_video = tk.Frame(frame_video)
+    frame_botones_video.pack(side=tk.BOTTOM, pady=5)
+
     # Botón para ver video
-    btn_ver = tk.Button(frame_video, text="Ver video", command=lambda: iniciar_video())
-    btn_ver.pack(side=tk.BOTTOM, pady=5)
+    btn_ver = tk.Button(frame_botones_video, text="Ver video", command=lambda: toggle_preview())
+    btn_ver.pack(side=tk.LEFT, padx=2)
+
+    # Botón para activar cámara
+    btn_activar = tk.Button(frame_botones_video, text="Activar Cámara", command=lambda: activar_camara(), bg="green", fg="white")
+    btn_activar.pack(side=tk.LEFT, padx=2)
 
     # Variables globales
     mostrar_video = [False]
@@ -120,35 +128,53 @@ def main():
 
 
     def on_cambio_camara(event):
-        # Detener el video actual si está reproduciéndose
+        # Si hay una cámara activa, desactivarla
         if cap[0] is not None:
             cap[0].release()
             cap[0] = None
+        # Ocultar la previsualización
         label_video.pack_forget()
         label_placeholder.place(relx=0.5, rely=0.5, anchor="center", relwidth=1, relheight=1)
         mostrar_video[0] = False
+        # Resetear botones
         btn_ver.config(text="Ver video")
+        btn_activar.config(text="Activar Cámara", bg="green")
 
-    def iniciar_video():
-        sel = lista_camaras.curselection()
-        if not sel:
-            messagebox.showwarning("Aviso", "Por favor, selecciona una cámara primero")
+    def activar_camara():
+        """Activa o desactiva la cámara seleccionada para transmisión"""
+        if cap[0] is None:  # Si no hay cámara activa, activarla
+            sel = lista_camaras.curselection()
+            if not sel:
+                messagebox.showwarning("Aviso", "Por favor, selecciona una cámara primero")
+                return
+
+            idx = camaras[sel[0]]['idx']
+            cap[0] = cv2.VideoCapture(idx)
+            if cap[0].isOpened():
+                btn_activar.config(text="Desactivar Cámara", bg="red")
+                actualizar_video()  # Iniciar la captura de frames
+            else:
+                cap[0] = None
+                messagebox.showerror("Error", "No se pudo acceder a la cámara")
+        else:  # Si hay una cámara activa, desactivarla
+            cap[0].release()
+            cap[0] = None
+            btn_activar.config(text="Activar Cámara", bg="green")
+            if mostrar_video[0]:  # Si estábamos mostrando video, ocultarlo
+                toggle_preview()
+
+    def toggle_preview():
+        """Alterna la visualización del video sin afectar la captura"""
+        if cap[0] is None or not cap[0].isOpened():
+            messagebox.showwarning("Aviso", "Por favor, activa una cámara primero")
             return
 
-        idx = camaras[sel[0]]['idx']
-        if cap[0] is not None:
-            cap[0].release()
-        cap[0] = cv2.VideoCapture(idx)
-        if not mostrar_video[0]:
+        if not mostrar_video[0]:  # Si no se está mostrando, mostrar
             label_placeholder.place_forget()
             label_video.pack(fill=tk.BOTH, expand=True)
             mostrar_video[0] = True
             btn_ver.config(text="Ocultar video")
-            actualizar_video()
-        else:
-            if cap[0] is not None:
-                cap[0].release()
-                cap[0] = None
+        else:  # Si se está mostrando, ocultar
             label_video.pack_forget()
             label_placeholder.place(relx=0.5, rely=0.5, anchor="center", relwidth=1, relheight=1)
             mostrar_video[0] = False
@@ -191,16 +217,17 @@ def main():
         return ImageTk.PhotoImage(image=img)
 
     def actualizar_video():
-        if mostrar_video[0] and cap[0] is not None and cap[0].isOpened():
+        if cap[0] is not None and cap[0].isOpened():
             try:
                 ret, frame = cap[0].read()
                 if ret:
-                    # Procesar frame para visualización
-                    label_w = label_video.winfo_width()
-                    label_h = label_video.winfo_height()
-                    imgtk = procesar_frame(frame, label_w, label_h)
-                    label_video.imgtk = imgtk
-                    label_video.config(image=imgtk)
+                    # Actualizar visualización si está activa
+                    if mostrar_video[0]:
+                        label_w = label_video.winfo_width()
+                        label_h = label_video.winfo_height()
+                        imgtk = procesar_frame(frame, label_w, label_h)
+                        label_video.imgtk = imgtk
+                        label_video.config(image=imgtk)
 
                     # Enviar frame si estamos transmitiendo
                     if transmitiendo[0] and socket_transmisor[0]:
@@ -224,7 +251,7 @@ def main():
             except:
                 pass  # Ignorar errores temporales de la cámara
         
-        if mostrar_video[0]:  # Solo programar el siguiente frame si seguimos mostrando video
+        if cap[0] is not None and cap[0].isOpened():  # Continuar mientras la cámara esté activa
             ventana.after(30, actualizar_video)
 
     # Buscar y listar cámaras
