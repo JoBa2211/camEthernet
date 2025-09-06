@@ -50,6 +50,32 @@ def main():
                                    text="Sin transmisión\nEsperando conexión...", justify="center")
     label_placeholder_rec.place(relx=0.5, rely=0.5, anchor="center", relwidth=1, relheight=1)
 
+    # Frame para botones de control de video de recepción
+    frame_botones_video_rec = tk.Frame(frame_video_rec)
+    frame_botones_video_rec.pack(side=tk.BOTTOM, pady=5)
+
+    # Variable para controlar la visualización del video recibido
+    mostrar_video_rec = [False]
+
+    # Botón para ver video recibido
+    btn_ver_rec = tk.Button(frame_botones_video_rec, text="Ver video",
+                           command=lambda: toggle_preview_rec())
+    btn_ver_rec.pack(side=tk.BOTTOM, pady=5)
+
+    def toggle_preview_rec():
+        """Alterna la visualización del video recibido"""
+        if not mostrar_video_rec[0]:  # Si no se está mostrando, mostrar
+            if frame_recibido[0] is not None:
+                label_placeholder_rec.place_forget()
+                label_video_rec.pack(fill=tk.BOTH, expand=True)
+                mostrar_video_rec[0] = True
+                btn_ver_rec.config(text="Ocultar video")
+        else:  # Si se está mostrando, ocultar
+            label_video_rec.pack_forget()
+            label_placeholder_rec.place(relx=0.5, rely=0.5, anchor="center", relwidth=1, relheight=1)
+            mostrar_video_rec[0] = False
+            btn_ver_rec.config(text="Ver video")
+
     # Frame para controles de recepción
     frame_controles_rec = tk.Frame(tab_recepcion)
     frame_controles_rec.pack(padx=10, pady=5, fill=tk.X, side=tk.BOTTOM)
@@ -348,16 +374,12 @@ def main():
 
     def mostrar_frame_recibido():
         try:
-            if frame_recibido[0] is not None:
+            if frame_recibido[0] is not None and mostrar_video_rec[0]:
                 label_w = label_video_rec.winfo_width()
                 label_h = label_video_rec.winfo_height()
                 imgtk = procesar_frame(frame_recibido[0], label_w, label_h)
                 label_video_rec.imgtk = imgtk
                 label_video_rec.config(image=imgtk)
-                
-                if label_placeholder_rec.winfo_viewable():
-                    label_placeholder_rec.place_forget()
-                    label_video_rec.pack(fill=tk.BOTH, expand=True)
         except:
             pass  # Ignorar errores temporales de procesamiento
 
@@ -379,15 +401,33 @@ def main():
     frame_campos = tk.Frame(frame_controles)
     frame_campos.pack(pady=5)
 
+    # Tu IP
+    mi_ip = get_ip_address()
+    tk.Label(frame_campos, text="Tu IP:").grid(row=0, column=0, padx=5)
+    entry_ip_local = tk.Entry(frame_campos, width=15, fg="blue")
+    entry_ip_local.insert(0, mi_ip)
+    entry_ip_local.configure(state='readonly')
+    entry_ip_local.grid(row=0, column=1, padx=5)
+
+    def copiar_ip():
+        ventana.clipboard_clear()
+        ventana.clipboard_append(mi_ip)
+        ventana.update()
+
+    # Botón para copiar IP
+    btn_copiar_ip = tk.Button(frame_campos, text="📋", command=copiar_ip, 
+                             width=2, height=1, fg="black")
+    btn_copiar_ip.grid(row=0, column=2)
+
     # IP destino y puerto
-    tk.Label(frame_campos, text="IP destino:").grid(row=0, column=0, padx=5)
+    tk.Label(frame_campos, text="IP destino:").grid(row=0, column=3, padx=5)
     entry_ip_destino = tk.Entry(frame_campos, width=15)
-    entry_ip_destino.grid(row=0, column=1, padx=5)
+    entry_ip_destino.grid(row=0, column=4, padx=5)
     entry_ip_destino.insert(0, "127.0.0.1")
 
-    tk.Label(frame_campos, text="Puerto:").grid(row=0, column=2, padx=5)
+    tk.Label(frame_campos, text="Puerto:").grid(row=0, column=5, padx=5)
     entry_puerto = tk.Entry(frame_campos, width=6)
-    entry_puerto.grid(row=0, column=3, padx=5)
+    entry_puerto.grid(row=0, column=6, padx=5)
     entry_puerto.insert(0, "5000")
 
     # Frame para los botones de transmisión
